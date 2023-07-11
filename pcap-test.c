@@ -40,7 +40,7 @@ struct libnet_tcp_hdr
 };
 
 void printMac(u_int8_t *m) {
-	printf("%02x:%02x:%02x:%02x:%02x:%02x ", m[0], m[1], m[2], m[3], m[4], m[5]);
+	printf("%02x:%02x:%02x:%02x:%02x:%02x\n", m[0], m[1], m[2], m[3], m[4], m[5]);
 }
 
 void printIp(struct in_addr ip_addr) {
@@ -49,18 +49,18 @@ void printIp(struct in_addr ip_addr) {
 	int third = (ip_addr.s_addr & 0x00ff0000) >> 16;
 	int fourth = (ip_addr.s_addr & 0xff000000) >> 24;
 
-	printf("%d.%d.%d.%d ", first, second, third, fourth);
+	printf("%d.%d.%d.%d\n", first, second, third, fourth);
 }
 
-void printPort(u_int16_t sport, u_int16_t dport) {
-	printf("%d -> %d ", ntohs(sport), ntohs(dport));
+void printPort(u_int16_t port) {
+	printf("%d\n", ntohs(port));
 }
 
 void printData(u_int8_t *data) {
-	printf("| data: ");
 	for (int i = 0; i < 10; i++) {
-		printf("%0x ", data[i]);
+		printf("%02x ", data[i]);
 	}
+	printf("\n");
 }
 
 void usage() {
@@ -123,11 +123,19 @@ int main(int argc, char* argv[]) {
 
 		u_int8_t* data = (u_int8_t*) (packet + ETHER_SIZE + ip_size + tcp_size);
 
+		printf("Ethernet Header Source Mac: ");
 		printMac(eth_hdr->ether_shost);
+		printf("  Ethernet Header Dest Mac: ");
 		printMac(eth_hdr->ether_dhost);
+		printf("     IPv4 Header Source IP: ");
 		printIp(ipv4_hdr->ip_src);
+		printf("       IPv4 Header Dest IP: ");
 		printIp(ipv4_hdr->ip_dst);
-		printPort(tcp_hdr->th_sport, tcp_hdr->th_dport);
+		printf("    TCP Header Source Port: ");
+		printPort(tcp_hdr->th_sport);
+		printf("      TCP Header Dest Port: ");
+		printPort(tcp_hdr->th_dport);
+		printf("             Payload(Data): ");
 		printData(data);
 		printf("\n");
 	}
