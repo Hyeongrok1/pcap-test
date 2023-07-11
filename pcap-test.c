@@ -4,7 +4,9 @@
 #include <stdint.h>
 #include <netinet/in.h>
 #define ETHER_ADDR_LEN 6
+#define ETHER_SIZE 14
 #define ETHERTYPE_IP 0x0800
+#define IPTYPE_TCP 0x06
 
 struct libnet_ethernet_hdr {
 	u_int8_t ether_dhost[ETHER_ADDR_LEN];
@@ -12,24 +14,29 @@ struct libnet_ethernet_hdr {
 	u_int16_t ether_type;
 };
 
-struct in_addr {
-	int first;
-	int second;
-	int third;
-	int fourth;
+struct libnet_ipv4_hdr
+{
+    u_int8_t ip_hl;      /* header length */
+    u_int8_t ip_tos;       /* type of service */
+    u_int16_t ip_len;         /* total length */
+    u_int16_t ip_id;          /* identification */
+    u_int16_t ip_off;
+    u_int8_t ip_ttl;          /* time to live */
+    u_int8_t ip_p;            /* protocol */
+    u_int16_t ip_sum;         /* checksum */
+    struct in_addr ip_src, ip_dst; /* source and dest address */
 };
 
-struct libnet_ipv4_hdr {
-	u_int8_t ip_hl;
-	u_int8_t ip_v;
-	u_int8_t ip_tos;
-	u_int16_t ip_len;
-	u_int16_t ip_id;
-	u_int16_t ip_off;
-	u_int8_t ip_ttl;
-	u_int8_t ip_p;
-	u_int16_t ip_sum;
-	struct in_addr ip_src, ip_dst;
+struct libnet_tcp_hdr
+{
+    u_int16_t th_sport;       /* source port */
+    u_int16_t th_dport;       /* destination port */
+    u_int32_t th_seq;         /* sequence number */
+    u_int32_t th_ack;         /* acknowledgement number */
+    u_int8_t  th_flags;       /* control flags */
+    u_int16_t th_win;         /* window */
+    u_int16_t th_sum;         /* checksum */
+    u_int16_t th_urp;         /* urgent pointer */
 };
 
 void printMac(u_int8_t *m) {
@@ -37,7 +44,23 @@ void printMac(u_int8_t *m) {
 }
 
 void printIp(struct in_addr ip_addr) {
-	printf("%d.%d.%d.%d ", ip_addr.first, ip_addr.second, ip_addr.third, ip_addr.fourth);
+	int first = (ip_addr.s_addr & 0x000000ff);
+	int second = (ip_addr.s_addr & 0x0000ff00) >> 8;
+	int third = (ip_addr.s_addr & 0x00ff0000) >> 16;
+	int fourth = (ip_addr.s_addr & 0xff000000) >> 24;
+
+	printf("%d.%d.%d.%d ", first, second, third, fourth);
+}
+
+void printPort(u_int16_t sport, u_int16_t dport) {
+	printf("%d -> %d ", ntohs(sport), ntohs(dport));
+}
+
+void printData(u_int8_t *data) {
+	printf("| data: ");
+	for (int i = 0; i < 10; i++) {
+		printf("%0x ", data[i]);
+	}
 }
 
 void usage() {
@@ -82,20 +105,31 @@ int main(int argc, char* argv[]) {
 			printf("pcap_next_ex return %d(%s)\n", res, pcap_geterr(pcap));
 			break;
 		}
-		printf("%u bytes captured\n", header->caplen);
 		struct libnet_ethernet_hdr *eth_hdr = (struct libnet_ethernet_hdr *) packet; 
-		printMac(eth_hdr->ether_shost);
-		printMac(eth_hdr->ether_dhost);
-		printf("\n");
+	
 		if (ntohs(eth_hdr->ether_type) != ETHERTYPE_IP) {
 			continue;
 		}
 		
-		struct libnet_ipv4_hdr *ipv4_hdr = (struct libnet_ipv4_hdr *) packet >> sizeof(libnet_ethernet_hdr); 
-			
+		struct libnet_ipv4_hdr *ipv4_hdr = (struct libnet_ipv4_hdr *) (packet + ETHER_SIZE);
+		
+		if (ipv4_hdr->ip_p != IPTYPE_TCP) {
+			continue;
+		}
 
+		size_t ip_size = 4*(ipv4_hdr->ip_hl & 0x0f);
+		struct libnet_tcp_hdr *tcp_hdr = (struct libnet_tcp_hdr *) (packet + ETHER_SIZE + ip_size);
+		size_t tcp_size = 4*(ntohs(tcp_hdr->th_flags) & 0xff);
 
-		printf("IP\n");
+		u_int8_t* data = (u_int8_t*) (packet + ETHER_SIZE + ip_size + tcp_size);
+
+		printMac(eth_hdr->ether_shost);
+		printMac(eth_hdr->ether_dhost);
+		printIp(ipv4_hdr->ip_src);
+		printIp(ipv4_hdr->ip_dst);
+		printPort(tcp_hdr->th_sport, tcp_hdr->th_dport);
+		printData(data);
+		printf("\n");
 	}
 
 	pcap_close(pcap);
