@@ -16,8 +16,8 @@ struct libnet_ethernet_hdr {
 
 struct libnet_ipv4_hdr
 {
-    u_int8_t ip_hl;      /* header length */
-    u_int8_t ip_tos;       /* type of service */
+    u_int8_t ip_hl;      	  /* header length */
+    u_int8_t ip_tos;          /* type of service */
     u_int16_t ip_len;         /* total length */
     u_int16_t ip_id;          /* identification */
     u_int16_t ip_off;
@@ -33,6 +33,7 @@ struct libnet_tcp_hdr
     u_int16_t th_dport;       /* destination port */
     u_int32_t th_seq;         /* sequence number */
     u_int32_t th_ack;         /* acknowledgement number */
+	u_int8_t  th_off;         /* (unused) */
     u_int8_t  th_flags;       /* control flags */
     u_int16_t th_win;         /* window */
     u_int16_t th_sum;         /* checksum */
@@ -44,10 +45,10 @@ void printMac(u_int8_t *m) {
 }
 
 void printIp(struct in_addr ip_addr) {
-	int first = (ip_addr.s_addr & 0x000000ff);
-	int second = (ip_addr.s_addr & 0x0000ff00) >> 8;
-	int third = (ip_addr.s_addr & 0x00ff0000) >> 16;
-	int fourth = (ip_addr.s_addr & 0xff000000) >> 24;
+	int first = (ip_addr.s_addr & 0xff);
+	int second = (ip_addr.s_addr >> 8) & 0xff;
+	int third = (ip_addr.s_addr >> 16) & 0xff;
+	int fourth = (ip_addr.s_addr >> 24) & 0xff;
 
 	printf("%d.%d.%d.%d\n", first, second, third, fourth);
 }
@@ -106,7 +107,7 @@ int main(int argc, char* argv[]) {
 			break;
 		}
 		struct libnet_ethernet_hdr *eth_hdr = (struct libnet_ethernet_hdr *) packet; 
-	
+		
 		if (ntohs(eth_hdr->ether_type) != ETHERTYPE_IP) {
 			continue;
 		}
@@ -119,10 +120,11 @@ int main(int argc, char* argv[]) {
 
 		size_t ip_size = 4*(ipv4_hdr->ip_hl & 0x0f);
 		struct libnet_tcp_hdr *tcp_hdr = (struct libnet_tcp_hdr *) (packet + ETHER_SIZE + ip_size);
-		size_t tcp_size = 4*(ntohs(tcp_hdr->th_flags) & 0xff);
-
+		size_t tcp_size = 4*(tcp_hdr->th_off >> 4);
+		
 		u_int8_t* data = (u_int8_t*) (packet + ETHER_SIZE + ip_size + tcp_size);
-
+		
+		printf("\n%u bytes captured\n", header->caplen);
 		printf("Ethernet Header Source Mac: ");
 		printMac(eth_hdr->ether_shost);
 		printf("  Ethernet Header Dest Mac: ");
