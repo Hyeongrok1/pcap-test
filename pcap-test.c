@@ -57,8 +57,10 @@ void printPort(u_int16_t port) {
 	printf("%d\n", ntohs(port));
 }
 
-void printData(u_int8_t *data) {
+void printData(u_int8_t *data, int payload_size) {
+	if (payload_size == 0) printf("0 bytes");
 	for (int i = 0; i < 10; i++) {
+		if (i == payload_size) break;
 		printf("%02x ", data[i]);
 	}
 	printf("\n");
@@ -120,10 +122,11 @@ int main(int argc, char* argv[]) {
 
 		size_t ip_size = 4*(ipv4_hdr->ip_hl & 0x0f);
 		struct libnet_tcp_hdr *tcp_hdr = (struct libnet_tcp_hdr *) (packet + ETHER_SIZE + ip_size);
-		size_t tcp_size = 4*(tcp_hdr->th_off >> 4);
+		size_t tcp_size = sizeof(*tcp_hdr);
 		
 		u_int8_t* data = (u_int8_t*) (packet + ETHER_SIZE + ip_size + tcp_size);
-		
+		int payload_size = ntohs(ipv4_hdr->ip_len) - ip_size - tcp_size;
+		printf("%d ", payload_size);
 		printf("\n%u bytes captured\n", header->caplen);
 		printf("Ethernet Header Source Mac: ");
 		printMac(eth_hdr->ether_shost);
@@ -138,7 +141,7 @@ int main(int argc, char* argv[]) {
 		printf("      TCP Header Dest Port: ");
 		printPort(tcp_hdr->th_dport);
 		printf("             Payload(Data): ");
-		printData(data);
+		printData(data, payload_size);
 		printf("\n");
 	}
 
