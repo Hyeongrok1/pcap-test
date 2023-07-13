@@ -6,7 +6,7 @@
 #define ETHER_ADDR_LEN 6
 #define ETHER_SIZE 14
 #define ETHERTYPE_IP 0x0800
-#define IPTYPE_TCP 0x06
+#define IPTYPE_TCP 6
 
 struct libnet_ethernet_hdr {
 	u_int8_t ether_dhost[ETHER_ADDR_LEN];
@@ -20,7 +20,7 @@ struct libnet_ipv4_hdr
     u_int8_t ip_tos;          /* type of service */
     u_int16_t ip_len;         /* total length */
     u_int16_t ip_id;          /* identification */
-    u_int16_t ip_off;
+    u_int16_t ip_off;		  /* offset */
     u_int8_t ip_ttl;          /* time to live */
     u_int8_t ip_p;            /* protocol */
     u_int16_t ip_sum;         /* checksum */
@@ -58,9 +58,9 @@ void printPort(u_int16_t port) {
 }
 
 void printData(u_int8_t *data, int payload_size) {
-	if (payload_size == 0) printf("0 bytes");
+	if (payload_size == 0) printf("0 bytes"); // if payload size if 0
 	for (int i = 0; i < 10; i++) {
-		if (i == payload_size) break;
+		if (i == payload_size) break; // break if payload size is less than 10
 		printf("%02x ", data[i]);
 	}
 	printf("\n");
@@ -110,23 +110,30 @@ int main(int argc, char* argv[]) {
 		}
 		struct libnet_ethernet_hdr *eth_hdr = (struct libnet_ethernet_hdr *) packet; 
 		
-		if (ntohs(eth_hdr->ether_type) != ETHERTYPE_IP) {
+		// if EtherType is not IPv4
+		if (ntohs(eth_hdr->ether_type) != ETHERTYPE_IP) { 
 			continue;
 		}
 		
 		struct libnet_ipv4_hdr *ipv4_hdr = (struct libnet_ipv4_hdr *) (packet + ETHER_SIZE);
 		
+		// if IpType is not TCP
 		if (ipv4_hdr->ip_p != IPTYPE_TCP) {
 			continue;
 		}
 
+		// IHL field contains the size of the IPv4 header
 		size_t ip_size = 4*(ipv4_hdr->ip_hl & 0x0f);
 		struct libnet_tcp_hdr *tcp_hdr = (struct libnet_tcp_hdr *) (packet + ETHER_SIZE + ip_size);
 		size_t tcp_size = sizeof(*tcp_hdr);
 		
+		// next to the ethernet, ip, tcp headers
 		u_int8_t* data = (u_int8_t*) (packet + ETHER_SIZE + ip_size + tcp_size);
+
+		// ip_len contains the total size of packet in bytes including header and data
 		int payload_size = ntohs(ipv4_hdr->ip_len) - ip_size - tcp_size;
-		printf("%d ", payload_size);
+
+		// print
 		printf("\n%u bytes captured\n", header->caplen);
 		printf("Ethernet Header Source Mac: ");
 		printMac(eth_hdr->ether_shost);
